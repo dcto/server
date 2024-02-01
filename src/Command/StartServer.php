@@ -7,6 +7,7 @@ use Psr\Log\LoggerInterface;
 use Psr\Container\ContainerInterface;
 use Psr\EventDispatcher\EventDispatcherInterface;
 
+use Symfony\Component\Console\Application;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
@@ -23,6 +24,9 @@ class StartServer extends Command
         $this->container = $container;
         $this->setDescription('Start varimax servers.');
         parent::__construct('start');
+        $application = new Application('Varimax Server', 'v1.0');
+        $application->add($this);
+        $application->run();
     }
 
     protected function execute(InputInterface $input, OutputInterface $output)

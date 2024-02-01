@@ -27,6 +27,9 @@
         "varimax/app": "varimax application",
         "varimax/varimax": "varimax frameworks"
     },
+    "scripts": {
+        "server": "server.php"
+    },
     "autoload": {
         "psr-4": {
             "VM\\Server\\": "src/"
