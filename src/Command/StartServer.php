@@ -21,8 +21,8 @@ class StartServer extends Command
     public function __construct(ContainerInterface $container)
     {
         $this->container = $container;
-        parent::__construct('start');
         $this->setDescription('Start varimax servers.');
+        parent::__construct('start');
     }
 
     protected function execute(InputInterface $input, OutputInterface $output)
@@ -43,7 +43,6 @@ class StartServer extends Command
         // Coroutine::set(['hook_flags' => swoole_hook_flags()]);
 
         $serverFactory->start();
-
         return 0;
     }
 

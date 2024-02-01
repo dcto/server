@@ -103,8 +103,8 @@ class ServerFactory
         return new EventDispatcher();
     }
 
-    private function getDefaultLogger(): Logger
+    private function getDefaultLogger(): LoggerInterface
     {
-        return new Logger();
+        return $this->container->log;
     }
 }
