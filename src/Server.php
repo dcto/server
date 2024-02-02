@@ -84,8 +84,11 @@ class Server implements ServerInterface
 
             if (! $this->server instanceof SwooleServer) {
                 $this->server = $this->makeServer($type, $host, $port, $config->getMode(), $sockType);
+                
                 $callbacks = array_replace($this->defaultCallbacks(), $config->getCallbacks(), $callbacks);
+                
                 $this->registerSwooleEvents($this->server, $callbacks, $name);
+                
                 $this->server->set(array_replace($config->getSettings(), $server->getSettings()));
                 ServerManager::add($name, [$type, current($this->server->ports)]);
 
@@ -171,14 +174,22 @@ class Server implements ServerInterface
                 }
 
                 $this->onRequestCallbacks[$className . $method] = $serverName;
-                $class = $this->container->get($className);
+
+                $class = $this->container->make($className, [
+                    'container'=>$this->container, 
+                    'logger'=>$this->logger, 
+                    'dispatcher'=>$this->eventDispatcher
+                ]);
+
                 if (method_exists($class, 'setServerName')) {
                     // Override the server name.
                     $class->setServerName($serverName);
                 }
 
-                $callback = [$class, $method];
+                // $callback = [$class, $method];
             }
+            
+
             $server->on($event, $callback);
         }
     }

@@ -2,12 +2,14 @@
 
 namespace VM\Server;
 
+use Swoole\Coroutine;
+
 use Psr\Container\ContainerInterface;
 use Psr\EventDispatcher\EventDispatcherInterface;
 use Psr\Log\LoggerInterface;
-use Swoole\Coroutine;
-use VM\Server\Event\CoroutineServerStart;
+
 use VM\Server\Event\CoroutineServerStop;
+use VM\Server\Event\CoroutineServerStart;
 use VM\Server\Event\MainCoroutineServerStart;
 
 class SwooleServer implements ServerInterface
@@ -147,6 +149,7 @@ class SwooleServer implements ServerInterface
                 }
                 return;
             case ServerInterface::SERVER_BASE:
+                die('ServerInterface::SERVER_BASE');
                 // if (isset($callbacks[Event::ON_RECEIVE])) {
                 //     [$connectHandler, $connectMethod] = $this->getCallbackMethod(Event::ON_CONNECT, $callbacks);
                 //     [$receiveHandler, $receiveMethod] = $this->getCallbackMethod(Event::ON_RECEIVE, $callbacks);
@@ -188,7 +191,7 @@ class SwooleServer implements ServerInterface
         $handler = $method = null;
         if (isset($callbacks[$callack])) {
             [$class, $method] = $callbacks[$callack];
-            $handler = $this->container->get($class);
+            $handler = $this->container->make($class);
         }
         return [$handler, $method];
     }

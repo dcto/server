@@ -3,14 +3,16 @@
 namespace VM\Server\Command;
 
 use VM\Server\ServerFactory;
-use Psr\Log\LoggerInterface;
 use Psr\Container\ContainerInterface;
-use Psr\EventDispatcher\EventDispatcherInterface;
 
 use Symfony\Component\Console\Application;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
+use VM\Server\Entry\EventDispatcher;
+use VM\Server\Event;
+use VM\Server\Server;
+use VM\Server\ServerInterface;
 
 class StartServer extends Command
 {
@@ -32,12 +34,12 @@ class StartServer extends Command
     protected function execute(InputInterface $input, OutputInterface $output)
     {
         $this->checkEnvironment($output);
+        
+        $serverFactory = $this->container->make(ServerFactory::class, ['container'=>$this->container])
+            ->setEventDispatcher($this->container->make(EventDispatcher::class))
+            ->setLogger($this->container->get('log'));
 
-        $serverFactory = $this->container->get(ServerFactory::class)
-            ->setEventDispatcher($this->container->get(EventDispatcherInterface::class))
-            ->setLogger($this->container->get(LoggerInterface::class));
-
-        $serverConfig = $this->container->config->get('server', []);
+        $serverConfig = $this->container->config->get('server', $this->defaultConfig());
         if (! $serverConfig) {
             throw new \InvalidArgumentException('At least one server should be defined.');
         }
@@ -45,9 +47,46 @@ class StartServer extends Command
         $serverFactory->configure($serverConfig);
 
         // Coroutine::set(['hook_flags' => swoole_hook_flags()]);
-
         $serverFactory->start();
         return 0;
+    }
+
+    private function defaultConfig(){
+        return [
+            'type' => Server::class,
+            'mode' => SWOOLE_BASE,
+            'servers' => [
+                [
+                    'name' => 'http',
+                    'type' => ServerInterface::SERVER_HTTP,
+                    'host' => '0.0.0.0',
+                    'port' => 8620,
+                    'sock_type' => SWOOLE_SOCK_TCP,
+                    'callbacks' => [
+                        Event::ON_REQUEST => [Server::class, 'onRequest'],
+                    ],
+                ],
+            ],
+            'processes' => [
+            ],
+            'settings' => [
+                'enable_coroutine' => true,
+                'worker_num' => 4,
+                'pid_file' => './runtime/varimaxx.pid',
+                'open_tcp_nodelay' => true,
+                'max_coroutine' => 100000,
+                'open_http2_protocol' => true,
+                'max_request' => 0,
+                'socket_buffer_size' => 2 * 1024 * 1024,
+            ],
+            'callbacks' => [
+                // Event::ON_BEFORE_START => [ServerStartCallback::class, 'beforeStart'],
+                // Event::ON_WORKER_START => [WorkerStartCallback::class, 'onWorkerStart'],
+                // Event::ON_PIPE_MESSAGE => [PipeMessageCallback::class, 'onPipeMessage'],
+                // Event::ON_WORKER_EXIT => [WorkerExitCallback::class, 'onWorkerExit'],
+            ],
+        ];
+        
     }
 
     private function checkEnvironment(OutputInterface $output)
