@@ -9,6 +9,7 @@ use Symfony\Component\Console\Application;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
+
 use VM\Server\Entry\EventDispatcher;
 use VM\Server\Event;
 use VM\Server\Server;
@@ -33,19 +34,19 @@ class StartServer extends Command
 
     protected function execute(InputInterface $input, OutputInterface $output)
     {
-        $this->checkEnvironment($output);
+        if ($this->checkEnvironment($output) ){
 
-        $serverFactory = $this->container->make(ServerFactory::class, ['container'=>$this->container])
-            ->setEventDispatcher($this->container->make(EventDispatcher::class))
-            ->setLogger($this->container->get('log'));
+            $serverFactory = $this->container->make(ServerFactory::class, ['container'=>$this->container])
+                ->setEventDispatcher($this->container->make(EventDispatcher::class))
+                ->setLogger($this->container->get('log'));
 
-        $this->container->config->set('server', $this->defaultConfig());
+            $this->container->config->set('server', $this->defaultConfig());
 
-        $serverFactory->configure($this->container->config->get('server'));
+            $serverFactory->configure($this->container->config->get('server'));
 
-        // Coroutine::set(['hook_flags' => swoole_hook_flags()]);
-        $serverFactory->start();
-
+            // Coroutine::set(['hook_flags' => swoole_hook_flags()]);
+            $serverFactory->start();
+        }
         return 0;
     }
 
@@ -63,7 +64,7 @@ class StartServer extends Command
                     'port' => 8620,
                     'sock_type' => SWOOLE_SOCK_TCP,
                     'callbacks' => [
-                        Event::ON_REQUEST => [\VM\Http\Server::class, 'onRequest'],
+                        'request' => [\VM\Http\Server::class, 'onRequest'],
                     ],
                 ],
             ],
@@ -92,6 +93,7 @@ class StartServer extends Command
     private function checkEnvironment(OutputInterface $output)
     {
         if (! extension_loaded('swoole')) {
+            $output->writeln("<error>Error: Unable to load Swoole extension.</error>");
             return;
         }
         /**
@@ -120,8 +122,10 @@ class StartServer extends Command
         $useShortname = ini_get_all('swoole')['swoole.use_shortname']['local_value'];
         $useShortname = strtolower(trim(str_replace('0', '', $useShortname)));
         if (! in_array($useShortname, ['', 'off', 'false'], true)) {
-            $output->writeln("<error>ERROR</error> Swoole short function names must be disabled before the server starts, please set swoole.use_shortname='Off' in your php.ini.");
-            exit(SIGTERM);
+            $output->writeln("<error>Error: Swoole short function names must be disabled before the server starts, please set swoole.use_shortname='Off' in your php.ini.</error>");
+            // exit(SIGTERM);
+            return false;
         }
+        return true;
     }
 }
