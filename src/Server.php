@@ -217,7 +217,7 @@ class Server implements ServerInterface
 
         return [
             Event::ON_WORKER_START => function (SwooleServer $server, int $workerId) {
-                printf('Varimax server worker [%d] started.' . PHP_EOL, $workerId);
+                printf('Varimax server worker[%d] started.' . PHP_EOL, $workerId);
             },
         ];
     }

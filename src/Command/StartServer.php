@@ -34,7 +34,7 @@ class StartServer extends Command
     protected function execute(InputInterface $input, OutputInterface $output)
     {
         $this->checkEnvironment($output);
-        
+
         $serverFactory = $this->container->make(ServerFactory::class, ['container'=>$this->container])
             ->setEventDispatcher($this->container->make(EventDispatcher::class))
             ->setLogger($this->container->get('log'));
@@ -71,7 +71,7 @@ class StartServer extends Command
             ],
             'settings' => [
                 'enable_coroutine' => true,
-                'worker_num' => getenv('DEBUG') ? 1 : swoole_cpu_num(),
+                'worker_num' => (getenv('ENV') == 'DEV' || getenv('DEBUG')) ? 1 : swoole_cpu_num(),
                 'pid_file' => './runtime/varimaxx.pid',
                 'open_tcp_nodelay' => true,
                 'max_coroutine' => 100000,
