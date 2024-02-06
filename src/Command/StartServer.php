@@ -39,18 +39,18 @@ class StartServer extends Command
             ->setEventDispatcher($this->container->make(EventDispatcher::class))
             ->setLogger($this->container->get('log'));
 
-        $serverConfig = $this->container->config->get('server', $this->defaultConfig());
-        if (! $serverConfig) {
-            throw new \InvalidArgumentException('At least one server should be defined.');
-        }
+        $this->container->config->set('server', $this->defaultConfig());
 
-        $serverFactory->configure($serverConfig);
+        $serverFactory->configure($this->container->config->get('server'));
 
         // Coroutine::set(['hook_flags' => swoole_hook_flags()]);
         $serverFactory->start();
+
         return 0;
     }
 
+
+    
     private function defaultConfig(){
         return [
             'type' => Server::class,
@@ -63,7 +63,7 @@ class StartServer extends Command
                     'port' => 8620,
                     'sock_type' => SWOOLE_SOCK_TCP,
                     'callbacks' => [
-                        Event::ON_REQUEST => [Server::class, 'onRequest'],
+                        Event::ON_REQUEST => [\VM\Http\Server::class, 'onRequest'],
                     ],
                 ],
             ],
@@ -71,7 +71,7 @@ class StartServer extends Command
             ],
             'settings' => [
                 'enable_coroutine' => true,
-                'worker_num' => 4,
+                'worker_num' => getenv('DEBUG') ? 1 : swoole_cpu_num(),
                 'pid_file' => './runtime/varimaxx.pid',
                 'open_tcp_nodelay' => true,
                 'max_coroutine' => 100000,

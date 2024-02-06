@@ -84,9 +84,9 @@ class Server implements ServerInterface
 
             if (! $this->server instanceof SwooleServer) {
                 $this->server = $this->makeServer($type, $host, $port, $config->getMode(), $sockType);
-                
+                // print_r($callbacks);die;
                 $callbacks = array_replace($this->defaultCallbacks(), $config->getCallbacks(), $callbacks);
-                
+
                 $this->registerSwooleEvents($this->server, $callbacks, $name);
                 
                 $this->server->set(array_replace($config->getSettings(), $server->getSettings()));
@@ -108,7 +108,7 @@ class Server implements ServerInterface
             if (isset($callbacks[Event::ON_BEFORE_START])) {
                 [$class, $method] = $callbacks[Event::ON_BEFORE_START];
                 if ($this->container->has($class)) {
-                    $this->container->get($class)->{$method}();
+                    $this->container->make($class)->{$method}();
                 }
             }
         }
@@ -163,11 +163,12 @@ class Server implements ServerInterface
      */
     protected function registerSwooleEvents($server, array $events, string $serverName): void
     {
+
         foreach ($events as $event => $callback) {
             if (! Event::isSwooleEvent($event)) {
                 continue;
             }
-            if (is_array($callback)) {
+            if (is_array($callback)) {        
                 [$className, $method] = $callback;
                 if (array_key_exists($className . $method, $this->onRequestCallbacks)) {
                     $this->logger->warning(sprintf('%s will be replaced by %s. Each server should have its own onRequest callback. Please check your configs.', $this->onRequestCallbacks[$className . $method], $serverName));
@@ -186,10 +187,8 @@ class Server implements ServerInterface
                     $class->setServerName($serverName);
                 }
 
-                // $callback = [$class, $method];
+                $callback = [$class, $method];
             }
-            
-
             $server->on($event, $callback);
         }
     }
@@ -218,7 +217,7 @@ class Server implements ServerInterface
 
         return [
             Event::ON_WORKER_START => function (SwooleServer $server, int $workerId) {
-                printf('Worker %d started.' . PHP_EOL, $workerId);
+                printf('Varimax server worker [%d] started.' . PHP_EOL, $workerId);
             },
         ];
     }
