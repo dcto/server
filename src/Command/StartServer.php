@@ -2,7 +2,7 @@
 
 namespace VM\Server\Command;
 
-use VM\Server\ServerFactory;
+
 use Psr\Container\ContainerInterface;
 
 use Symfony\Component\Console\Application;
@@ -11,14 +11,16 @@ use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Style\SymfonyStyle;
 
-use VM\Server\Entry\EventDispatcher;
+
 use VM\Server\Server;
+use VM\Server\ServerFactory;
 use VM\Server\ServerInterface;
+use VM\Server\Entry\EventDispatcher;
 
 class StartServer extends Command
 {
     /**
-     * @var ContainerInterface
+     * @var ContainerInterface|\VM\Application
      */
     private $container;
 
@@ -64,12 +66,15 @@ class StartServer extends Command
                     'sock_type' => SWOOLE_SOCK_TCP,
                     'callbacks' => [
                         'start' => function(\Swoole\Server $server) use( $io){
-                            $io->horizontalTable(['varimax_server_listen'] + array_keys($server->setting), [[$server->host.':'.$server->port]+array_values($server->setting)]);
+                            $io->horizontalTable(
+                                ['varimax_server_listen', 'master_pid', 'manager_pid'] + array_keys($server->setting), 
+                                [[$server->host.':'.$server->port, $server->master_pid, $server->manager_pid] + array_values($server->setting)]
+                            );
                         },
                         // 'workerStart' => function (\Swoole\Server $server, int $workerId) {
                         //     printf('varimax server worker[%d] started.' . PHP_EOL, $workerId);
                         // },
-                        'request' => [\VM\Http\Server::class, 'onRequest'],
+                        'request' => [\VM\Server\Event\HttpRequest::class, 'onRequest'],
                     ],
                 ],
             ],
