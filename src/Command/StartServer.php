@@ -9,9 +9,9 @@ use Symfony\Component\Console\Application;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
+use Symfony\Component\Console\Style\SymfonyStyle;
 
 use VM\Server\Entry\EventDispatcher;
-use VM\Server\Event;
 use VM\Server\Server;
 use VM\Server\ServerInterface;
 
@@ -39,8 +39,7 @@ class StartServer extends Command
             $serverFactory = $this->container->make(ServerFactory::class, ['container'=>$this->container])
                 ->setEventDispatcher($this->container->make(EventDispatcher::class))
                 ->setLogger($this->container->get('log'));
-
-            $this->container->config->set('server', $this->defaultConfig());
+            $this->container->config->set('server', $this->defaultConfig(new SymfonyStyle($input, $output)));
 
             $serverFactory->configure($this->container->config->get('server'));
 
@@ -52,7 +51,7 @@ class StartServer extends Command
 
 
     
-    private function defaultConfig(){
+    private function defaultConfig(SymfonyStyle $io){
         return [
             'type' => Server::class,
             'mode' => SWOOLE_BASE,
@@ -64,6 +63,12 @@ class StartServer extends Command
                     'port' => 8620,
                     'sock_type' => SWOOLE_SOCK_TCP,
                     'callbacks' => [
+                        'start' => function(\Swoole\Server $server) use( $io){
+                            $io->horizontalTable(['varimax_server_listen'] + array_keys($server->setting), [[$server->host.':'.$server->port]+array_values($server->setting)]);
+                        },
+                        // 'workerStart' => function (\Swoole\Server $server, int $workerId) {
+                        //     printf('varimax server worker[%d] started.' . PHP_EOL, $workerId);
+                        // },
                         'request' => [\VM\Http\Server::class, 'onRequest'],
                     ],
                 ],
@@ -73,7 +78,7 @@ class StartServer extends Command
             'settings' => [
                 'enable_coroutine' => true,
                 'worker_num' => (getenv('ENV') == 'DEV' || getenv('DEBUG')) ? 1 : swoole_cpu_num(),
-                'pid_file' => './runtime/varimaxx.pid',
+                'pid_file' => './runtime/varimax.pid',
                 'open_tcp_nodelay' => true,
                 'max_coroutine' => 100000,
                 'open_http2_protocol' => true,
