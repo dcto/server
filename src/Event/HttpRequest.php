@@ -28,20 +28,30 @@ class HttpRequest
 
     public function onRequest(\Swoole\Http\Request $request, \Swoole\Http\Response $response): void
     {
-        $this->container->request->initialize(
-            $request->get ?? [],
-            $request->post ?? [],
-            [],
-            $request->cookie ?? [],
-            $request->files ?? [],
-            $request->server ?? [],
-            $request->rawContent()
-        );
-        $this->container->request->headers->add($request->header ?? []);
-        $this->container->request->setMethod($request->server['request_method'] ?? 'GET');
-        $this->container->request->setPathInfo($request->server['path_info'] ?? '');
-        $this->container->request->setContent();
-        $this->SwooleResponse($response,  $this->container->dispatch());
+        try{
+            $this->container->request->initialize(
+                $request->get ?? [],
+                $request->post ?? [],
+                [],
+                $request->cookie ?? [],
+                $request->files ?? [],
+                $request->server ?? [],
+                $request->rawContent()
+            );
+            $this->container->request->headers->add($request->header ?? []);
+            $this->container->request->setMethod($request->server['request_method'] ?? 'GET');
+            $this->container->request->setPathInfo($request->server['path_info'] ?? '');
+            $this->SwooleResponse($response,  $this->container->dispatch());
+        }catch(\Throwable $e){
+            $this->container->log->error($e);
+            if ($e->getCode() < 600) {
+                $response->status($e->getCode());
+                $response->end($e->getMessage());
+            }else{
+                $response->status(500);
+                $response->end('Internal Server Error');
+            }
+        }
     }
 
     public function getServerName(): string
@@ -72,7 +82,6 @@ class HttpRequest
         foreach ($response->headers() as $key => $value) {
             $swooleResponse->header($key, implode(';', $value));
         }
-
         /*
          * Cookies
          * This part maybe only supports of http-message component.
