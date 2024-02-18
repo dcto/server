@@ -82,24 +82,17 @@ class HttpRequest
         foreach ($response->headers() as $key => $value) {
             $swooleResponse->header($key, implode(';', $value));
         }
-        /*
-         * Cookies
-         * This part maybe only supports of http-message component.
-         */
-        if (method_exists($response, 'getCookies')) {
-            foreach ((array) $response->getCookies() as $domain => $paths) {
-                foreach ($paths ?? [] as $path => $item) {
-                    foreach ($item ?? [] as $name => $cookie) {
-                        
-                        if (get_class_methods($cookie) == ['isRaw', 'getValue', 'getName', 'getExpiresTime', 'getPath', 'getDomain', 'isSecure', 'isHttpOnly', 'getSameSite']) {
-                            $value = $cookie->isRaw() ? $cookie->getValue() : rawurlencode($cookie->getValue());
-                            $swooleResponse->rawcookie($cookie->getName(), $value, $cookie->getExpiresTime(), $cookie->getPath(), $cookie->getDomain(), $cookie->isSecure(), $cookie->isHttpOnly(), (string) $cookie->getSameSite());
-                        }
-                    }
-                }
-            }
-        }
 
+        /**
+         * Cookies
+         */
+        foreach ($response->getCookies() as $cookie) {
+            /**
+             * @var \Symfony\Component\HttpFoundation\Cookie $cookie 
+             */ 
+             $swooleResponse->setcookie($cookie->getName(), $cookie->getValue(), $cookie->getExpiresTime(), $cookie->getPath(), $cookie->getDomain(), $cookie->isSecure(), $cookie->isHttpOnly(), (string) $cookie->getSameSite());
+        }
+        
         /*
          * Trailers
          */
