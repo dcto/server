@@ -41,9 +41,20 @@ class StartServer extends Command
             $serverFactory = $this->container->make(ServerFactory::class, ['container'=>$this->container])
                 ->setEventDispatcher($this->container->make(EventDispatcher::class))
                 ->setLogger($this->container->get('log'));
-            $this->container->config->set('server', $this->defaultConfig(new SymfonyStyle($input, $output)));
+                
+            $config = array_replace_recursive($this->defaultConfig(), $this->container->config->get('server'));
+            $serverFactory->configure($config);
 
-            $serverFactory->configure($this->container->config->get('server'));
+            $server = $serverFactory->getServer()->getServer();
+            if (!$server->getCallback('start')){
+                $server->on('start', function ($server) use($input, $output) {
+                    (new SymfonyStyle($input, $output))->horizontalTable(
+                        ['varimax_server_listen', 'master_pid', 'manager_pid'] + array_keys($server->setting), 
+                        [[$server->host.':'.$server->port, $server->master_pid, $server->manager_pid] + array_values($server->setting)]
+                    );
+                    // print_r($server->stats());
+                });
+            }
 
             // Coroutine::set(['hook_flags' => swoole_hook_flags()]);
             $serverFactory->start();
@@ -53,7 +64,7 @@ class StartServer extends Command
 
 
     
-    private function defaultConfig(SymfonyStyle $io){
+    private function defaultConfig(){
         return [
             'type' => Server::class,
             'mode' => SWOOLE_BASE,
@@ -65,15 +76,6 @@ class StartServer extends Command
                     'port' => 8620,
                     'sock_type' => SWOOLE_SOCK_TCP,
                     'callbacks' => [
-                        'start' => function(\Swoole\Server $server) use( $io){
-                            $io->horizontalTable(
-                                ['varimax_server_listen', 'master_pid', 'manager_pid'] + array_keys($server->setting), 
-                                [[$server->host.':'.$server->port, $server->master_pid, $server->manager_pid] + array_values($server->setting)]
-                            );
-                        },
-                        // 'workerStart' => function (\Swoole\Server $server, int $workerId) {
-                        //     printf('varimax server worker[%d] started.' . PHP_EOL, $workerId);
-                        // },
                         'request' => [\VM\Server\Event\HttpRequest::class, 'onRequest'],
                     ],
                 ],
