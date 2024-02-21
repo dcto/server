@@ -42,9 +42,12 @@ class StartServer extends Command
                 ->setEventDispatcher($this->container->make(EventDispatcher::class))
                 ->setLogger($this->container->get('log'));
                 
-            $config = array_replace_recursive($this->defaultConfig(), $this->container->config->get('server'));
+            $config = array_replace_recursive($this->defaultConfig(),  $this->container->config->get('server', []) );
             $serverFactory->configure($config);
 
+            /**
+             * @var \Swoole\Server $server
+             */
             $server = $serverFactory->getServer()->getServer();
             if (!$server->getCallback('start')){
                 $server->on('start', function ($server) use($input, $output) {
@@ -55,7 +58,15 @@ class StartServer extends Command
                     // print_r($server->stats());
                 });
             }
+            if ($server instanceof \Swoole\Http\Server && !$server->getCallback('request')){
+                $server->on('request', [new \VM\Server\Callback\Request($this->container), 'onRequest']);
+            }
 
+            if ($server instanceof \Swoole\WebSocket\Server && !$server->getCallback('message')){
+                $server->on('message', [new \VM\Server\Callback\Message($this->container), 'onMessage']);
+            }
+
+            
             // Coroutine::set(['hook_flags' => swoole_hook_flags()]);
             $serverFactory->start();
         }
@@ -75,9 +86,7 @@ class StartServer extends Command
                     'host' => '0.0.0.0',
                     'port' => 8620,
                     'sock_type' => SWOOLE_SOCK_TCP,
-                    'callbacks' => [
-                        'request' => [\VM\Server\Event\HttpRequest::class, 'onRequest'],
-                    ],
+                    'callbacks' => [],
                 ],
             ],
             'processes' => [

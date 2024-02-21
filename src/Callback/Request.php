@@ -1,8 +1,8 @@
 <?php
  
-namespace VM\Server\Event;
+namespace VM\Server\Callback;
 
-class HttpRequest 
+class Request 
 {
     /**
      * @var \VM\Application

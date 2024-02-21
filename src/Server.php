@@ -84,7 +84,6 @@ class Server implements ServerInterface
 
             if (! $this->server instanceof SwooleServer) {
                 $this->server = $this->makeServer($type, $host, $port, $config->getMode(), $sockType);
-                // print_r($callbacks);die;
                 $callbacks = array_replace($config->getCallbacks(), $callbacks);
 
                 $this->registerSwooleEvents($this->server, $callbacks, $name);
@@ -101,7 +100,7 @@ class Server implements ServerInterface
                 }
                 $server->getSettings() && $slaveServer->set(array_replace($config->getSettings(), $server->getSettings()));
                 $this->registerSwooleEvents($slaveServer, $callbacks, $name);
-                // ServerManager::add($name, [$type, $slaveServer]);
+                ServerManager::add($name, [$type, $slaveServer]);
             }
 
             // Trigger beforeStart event.
