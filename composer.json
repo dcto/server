@@ -20,7 +20,7 @@
         "symfony/console": "^5.0"
     },
     "require-dev": {
-        "swoole/ide-helper": "^5.1",
+        "swoole/ide-helper": "*",
         "varimax/varimax": "dev-master"
     },
     "suggest": {

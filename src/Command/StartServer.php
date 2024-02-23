@@ -66,8 +66,14 @@ class StartServer extends Command
                 $server->on('message', [new \VM\Server\Callback\Message($this->container), 'onMessage']);
             }
 
+            // $server->tick(1000, function() use($output){
+                // $output->writeln('<info>['.date('Y-m-d H:i:s.u', microtime()).'] Crontab Task [Test::class] Executed.</info>');
+            //     echo  date_create()->format('Uv').PHP_EOL;
+            // });
             
-            // Coroutine::set(['hook_flags' => swoole_hook_flags()]);
+            //Support Coroutine
+            \Swoole\Coroutine::set(['hook_flags' => SWOOLE_HOOK_ALL | SWOOLE_HOOK_CURL]);
+
             $serverFactory->start();
         }
         return 0;
@@ -140,13 +146,13 @@ class StartServer extends Command
          * swoole.use_shortname = ""         => string(0) ""      => disabled
          * swoole.use_shortname = " "        => string(1) " "     => disabled.
          */
-        $useShortname = ini_get_all('swoole')['swoole.use_shortname']['local_value'];
-        $useShortname = strtolower(trim(str_replace('0', '', $useShortname)));
-        if (! in_array($useShortname, ['', 'off', 'false'], true)) {
-            $output->writeln("<error>Error: Swoole short function names must be disabled before the server starts, please set swoole.use_shortname='Off' in your php.ini.</error>");
-            // exit(SIGTERM);
-            return false;
-        }
+        // $useShortname = ini_get_all('swoole')['swoole.use_shortname']['local_value'];
+        // $useShortname = strtolower(trim(str_replace('0', '', $useShortname)));
+        // if (! in_array($useShortname, ['', 'off', 'false'], true)) {
+        //     $output->writeln("<error>Error: Swoole short function names must be disabled before the server starts, please set swoole.use_shortname='Off' in your php.ini.</error>");
+        //     // exit(SIGTERM);
+        //     return false;
+        // }
         return true;
     }
 }
