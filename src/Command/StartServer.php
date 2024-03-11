@@ -5,12 +5,13 @@ namespace VM\Server\Command;
 
 use Psr\Container\ContainerInterface;
 
+
 use Symfony\Component\Console\Application;
 use Symfony\Component\Console\Command\Command;
+use Symfony\Component\Console\Style\SymfonyStyle;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
-use Symfony\Component\Console\Style\SymfonyStyle;
-
+use Symfony\Component\Console\Helper\TableSeparator;
 
 use VM\Server\Server;
 use VM\Server\ServerFactory;
@@ -49,13 +50,18 @@ class StartServer extends Command
              * @var \Swoole\Server $server
              */
             $server = $serverFactory->getServer()->getServer();
+
+            $io = new SymfonyStyle($input, $output);
+           
             if (!$server->getCallback('start')){
-                $server->on('start', function ($server) use($input, $output) {
-                    (new SymfonyStyle($input, $output))->horizontalTable(
-                        ['varimax_server_listen', 'master_pid', 'manager_pid'] + array_keys($server->setting), 
-                        [[$server->host.':'.$server->port, $server->master_pid, $server->manager_pid] + array_values($server->setting)]
+                $server->on('start', function ($server) use($io) {
+                    $io->definitionList(
+                        "Varimax Server:",
+                        ['listen_on'=>$server->host.':'.$server->port],['master_id'=>$server->master_pid],
+                        new TableSeparator(),
+                        "Server Infomation:",
+                        ...array_chunk(array_filter($server->setting), 1, true)
                     );
-                    // print_r($server->stats());
                 });
             }
             if ($server instanceof \Swoole\Http\Server && !$server->getCallback('request')){
@@ -64,6 +70,12 @@ class StartServer extends Command
 
             if ($server instanceof \Swoole\WebSocket\Server && !$server->getCallback('message')){
                 $server->on('message', [new \VM\Server\Callback\Message($this->container), 'onMessage']);
+            }
+ 
+            foreach($this->container->config->get('crontab', []) as $crontab){
+            //    $v = $this->container->make(ParserTime::class)->parse('* * 2 * * *');
+
+            //    print_r($v);
             }
 
             // $server->tick(1000, function() use($output){
