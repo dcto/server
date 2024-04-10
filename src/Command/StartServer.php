@@ -2,9 +2,7 @@
 
 namespace VM\Server\Command;
 
-
 use Psr\Container\ContainerInterface;
-
 
 use Symfony\Component\Console\Application;
 use Symfony\Component\Console\Command\Command;
@@ -12,11 +10,12 @@ use Symfony\Component\Console\Style\SymfonyStyle;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Helper\TableSeparator;
-
 use VM\Server\Server;
 use VM\Server\ServerFactory;
 use VM\Server\ServerInterface;
+use VM\Server\CrontabDispatcher;
 use VM\Server\Entry\EventDispatcher;
+
 
 class StartServer extends Command
 {
@@ -46,15 +45,12 @@ class StartServer extends Command
             $config = array_replace_recursive($this->defaultConfig(),  $this->container->config->get('server', []) );
             $serverFactory->configure($config);
 
-            /**
-             * @var \Swoole\Server $server
-             */
             $server = $serverFactory->getServer()->getServer();
 
             $io = new SymfonyStyle($input, $output);
            
             if (!$server->getCallback('start')){
-                $server->on('start', function ($server) use($io) {
+                $server->on('start', function (\Swoole\Server $server) use($io) {
                     $io->definitionList(
                         "Varimax Server:",
                         ['listen_on'=>$server->host.':'.$server->port],['master_id'=>$server->master_pid],
@@ -62,8 +58,14 @@ class StartServer extends Command
                         "Server Infomation:",
                         ...array_chunk(array_filter($server->setting), 1, true)
                     );
+
+                    if($this->container->config->get('crontab', [])) {
+                        if (!class_exists(\VM\Crontab\CrontabDispatcher::class)) throw new \RuntimeException('Please install varimax/crontab first.');
+                        $this->container->make(\VM\Crontab\CrontabDispatcher::class, ['app'=>$this->container])->handle();
+                    }
                 });
             }
+
             if ($server instanceof \Swoole\Http\Server && !$server->getCallback('request')){
                 $server->on('request', [new \VM\Server\Callback\Request($this->container), 'onRequest']);
             }
@@ -71,26 +73,30 @@ class StartServer extends Command
             if ($server instanceof \Swoole\WebSocket\Server && !$server->getCallback('message')){
                 $server->on('message', [new \VM\Server\Callback\Message($this->container), 'onMessage']);
             }
- 
-            foreach($this->container->config->get('crontab', []) as $crontab){
-            //    $v = $this->container->make(ParserTime::class)->parse('* * 2 * * *');
 
-            //    print_r($v);
-            }
-
-            // $server->tick(1000, function() use($output){
-                // $output->writeln('<info>['.date('Y-m-d H:i:s.u', microtime()).'] Crontab Task [Test::class] Executed.</info>');
-            //     echo  date_create()->format('Uv').PHP_EOL;
-            // });
-            
             //Support Coroutine
-            \Swoole\Coroutine::set(['hook_flags' => SWOOLE_HOOK_ALL | SWOOLE_HOOK_CURL]);
+            \Swoole\Coroutine::set(['hook_flags' => SWOOLE_HOOK_ALL]);
 
             $serverFactory->start();
         }
         return 0;
     }
 
+    /**
+    * @description 注册定时任务
+    * @author  dc.To
+    * @version 20240409
+    */
+    protected function registerCrontab() {
+        foreach($this->container->config->get('crontab', []) as $crontab){
+            printf('Crontab [%s] have been registered.'.PHP_EOL, $crontab);
+            // $times = $this->container->make(ParserTime::class)->parse('* * * * * *');
+           
+            //  foreach($times as $t){
+            //      echo $t.PHP_EOL;
+            //  }
+         }
+    }
 
     
     private function defaultConfig(){
