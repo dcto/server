@@ -33,7 +33,7 @@ class StartServer extends Command
 
     protected function configure()
     {
-        $this->setName('app');
+        $this->setName(_APP_);
         $this->setDescription(sprintf('Start varimax [%s] server.', _APP_));
         $application = new Application('Varimax Server', 'v1.0');
         $application->add($this);
