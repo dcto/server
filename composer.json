@@ -28,7 +28,7 @@
         "varimax/varimax": "varimax frameworks"
     },
     "scripts": {
-        "server": ["Composer\\Config::disableProcessTimeout", "server.php"]
+        "start": ["Composer\\Config::disableProcessTimeout", "server.php"]
     },
     "autoload": {
         "psr-4": {

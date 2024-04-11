@@ -2,19 +2,20 @@
 
 namespace VM\Server\Command;
 
+use VM\Server\Server;
+use VM\Server\ServerFactory;
+use VM\Server\ServerInterface;
+use VM\Server\Entry\EventDispatcher;
+
 use Psr\Container\ContainerInterface;
 
 use Symfony\Component\Console\Application;
 use Symfony\Component\Console\Command\Command;
+use Symfony\Component\Console\Input\ArrayInput;
 use Symfony\Component\Console\Style\SymfonyStyle;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Helper\TableSeparator;
-use VM\Server\Server;
-use VM\Server\ServerFactory;
-use VM\Server\ServerInterface;
-use VM\Server\CrontabDispatcher;
-use VM\Server\Entry\EventDispatcher;
 
 
 class StartServer extends Command
@@ -27,11 +28,16 @@ class StartServer extends Command
     public function __construct(ContainerInterface $container)
     {
         $this->container = $container;
-        $this->setDescription('Start varimax servers.');
-        parent::__construct('start');
+        parent::__construct();
+    }
+
+    protected function configure()
+    {
+        $this->setName('app');
+        $this->setDescription(sprintf('Start varimax [%s] server.', _APP_));
         $application = new Application('Varimax Server', 'v1.0');
         $application->add($this);
-        $application->run();
+        $application->run(new ArrayInput([_APP_]));
     }
 
     protected function execute(InputInterface $input, OutputInterface $output)
@@ -60,7 +66,7 @@ class StartServer extends Command
                     );
 
                     if($this->container->config->get('crontab', [])) {
-                        if (!class_exists(\VM\Crontab\CrontabDispatcher::class)) throw new \RuntimeException('Please install varimax/crontab first.');
+                        if (!class_exists(\VM\Crontab\CrontabDispatcher::class)) throw new \RuntimeException('Please composer require varimax/crontab first.');
                         $this->container->make(\VM\Crontab\CrontabDispatcher::class, ['app'=>$this->container])->handle();
                     }
                 });
@@ -81,23 +87,6 @@ class StartServer extends Command
         }
         return 0;
     }
-
-    /**
-    * @description 注册定时任务
-    * @author  dc.To
-    * @version 20240409
-    */
-    protected function registerCrontab() {
-        foreach($this->container->config->get('crontab', []) as $crontab){
-            printf('Crontab [%s] have been registered.'.PHP_EOL, $crontab);
-            // $times = $this->container->make(ParserTime::class)->parse('* * * * * *');
-           
-            //  foreach($times as $t){
-            //      echo $t.PHP_EOL;
-            //  }
-         }
-    }
-
     
     private function defaultConfig(){
         return [
