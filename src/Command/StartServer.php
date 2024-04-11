@@ -59,6 +59,7 @@ class StartServer extends Command
                 $server->on('start', function (\Swoole\Server $server) use($io) {
                     $io->definitionList(
                         "Varimax Server:",
+                        ['application'=>_APP_],
                         ['listen_on'=>$server->host.':'.$server->port],['master_id'=>$server->master_pid],
                         new TableSeparator(),
                         "Server Infomation:",
