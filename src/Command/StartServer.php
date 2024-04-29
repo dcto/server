@@ -42,7 +42,7 @@ class StartServer extends Command
 
     protected function execute(InputInterface $input, OutputInterface $output)
     {
-        if ($this->checkEnvironment($output) ){
+            $this->checkEnvironment($output);
 
             $serverFactory = $this->container->make(ServerFactory::class, ['container'=>$this->container])
                 ->setEventDispatcher($this->container->make(EventDispatcher::class))
@@ -83,9 +83,10 @@ class StartServer extends Command
 
             //Support Coroutine
             \Swoole\Coroutine::set(['hook_flags' => SWOOLE_HOOK_ALL]);
-
+            // \Swoole\Runtime::enableCoroutine(SWOOLE_HOOK_ALL  | SWOOLE_HOOK_CURL);
+            
             $serverFactory->start();
-        }
+
         return 0;
     }
     
@@ -129,7 +130,7 @@ class StartServer extends Command
     {
         if (! extension_loaded('swoole')) {
             $output->writeln("<error>Error: Unable to load Swoole extension.</error>");
-            return;
+            return false;
         }
         /**
          * swoole.use_shortname = true       => string(1) "1"     => enabled
