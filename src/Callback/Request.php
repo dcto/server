@@ -106,7 +106,7 @@ class Request
          * Response with swoole
          */
         if ($response->getResponse()){
-            $swooleResponse->write($response->getContent());
+            $response->getContent() && $swooleResponse->write($response->getContent());
             $swooleResponse->status($response->getStatusCode(), $response->getReasonPhrase());
         }
 
