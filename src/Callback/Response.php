@@ -24,7 +24,7 @@ class Response {
             $this->swooleResponse($swooleResponse, $response);
             $content = $response->getBody();
             if ($content instanceof StreamFile) {
-                $swooleResponse->sendfile($content->getContents());
+                $swooleResponse->sendfile($content->getFilename());
                 return;
             }
 
@@ -34,7 +34,7 @@ class Response {
                 $swooleResponse->end();
             }
         } catch (\Throwable $e) {
-            \Log::debug('Swoole response emit error: '. $e->getMessage());
+            error_log($e, 4);
         }
     }
 
