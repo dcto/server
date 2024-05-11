@@ -52,8 +52,15 @@ class Request
 
             $psr7Response = $this->container->dispatch();
 
+        }catch(\ErrorException $e){
+            $this->container->log->emergency($e);
+        
+        }catch(\Exception $e){
+            $this->container->log->critical($e);
+
         }catch(\Throwable $e){
             $this->container->log->error($e);
+        
         }finally{
             if (! isset($psr7Response)) {
                 return;

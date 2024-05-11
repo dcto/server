@@ -53,8 +53,9 @@ class Response {
 
         /*
          * Cookies
-         * This part maybe only supports of hyperf/http-message component.
+         * This part maybe only supports of ResponseInterface component.
          */
+        /** @var \VM\Http\Response $response */
         if (method_exists($response, 'getCookies')) {
             foreach ((array) $response->getCookies() as $cookie) {
                 /**
