@@ -6,7 +6,6 @@ namespace VM\Server\Callback;
 
 use Psr\Http\Message\ResponseInterface;
 use Swoole\Http\Response as SwooleResponse;
-use VM\Http\Response\StreamFile;
 
 class Response {
 
@@ -22,14 +21,18 @@ class Response {
                 return;
             }
             $this->swooleResponse($swooleResponse, $response);
-            $content = $response->getBody();
-            if ($content instanceof StreamFile) {
-                $swooleResponse->sendfile($content->getFilename());
+
+            if (($file = $response->getBody()) instanceof \SplFileInfo) {
+                /** @var \SplFileInfo $file */
+                $swooleResponse->sendfile($file->getPathname());
+
+                $withContent = false;
+            
                 return;
             }
 
             if ($withContent) {
-                $swooleResponse->end((string) $content);
+                $swooleResponse->end((string) $response->getContent());
             } else {
                 $swooleResponse->end();
             }
