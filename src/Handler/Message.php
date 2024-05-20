@@ -1,6 +1,6 @@
 <?php
  
-namespace VM\Server\Callback;
+namespace VM\Server\Handler;
 
 class Message 
 {

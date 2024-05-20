@@ -1,6 +1,6 @@
 <?php
  
-namespace VM\Server\Callback;
+namespace VM\Server\Handler;
 
 class Request 
 {
@@ -49,7 +49,7 @@ class Request
             $this->container->request->headers->add($request->header ?? []);
             $this->container->request->setMethod($request->server['request_method'] ?? 'GET');
             $this->container->request->setPathInfo($request->server['path_info'] ?? '');
-
+            
             $psr7Response = $this->container->dispatch();
 
         }catch(\ErrorException $e){
@@ -62,10 +62,10 @@ class Request
             $this->container->log->error($e);
         
         }finally{
-            if (! isset($psr7Response)) {
+            if (!$psr7Response) {
                 return;
             }
-            if (isset($psr7Request) && $psr7Request->getMethod() === 'HEAD') {
+            if ($request->getMethod() === 'HEAD') {
                 $this->response->emit($psr7Response, $response, false);
             } else {
                 $this->response->emit($psr7Response, $response, true);

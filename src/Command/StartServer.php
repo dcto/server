@@ -74,11 +74,11 @@ class StartServer extends Command
             }
 
             if ($server instanceof \Swoole\Http\Server && !$server->getCallback('request')){
-                $server->on('request', [new \VM\Server\Callback\Request($this->container), 'onRequest']);
+                $server->on('request', [new \VM\Server\Handler\Request($this->container), 'onRequest']);
             }
 
             if ($server instanceof \Swoole\WebSocket\Server && !$server->getCallback('message')){
-                $server->on('message', [new \VM\Server\Callback\Message($this->container), 'onMessage']);
+                $server->on('message', [new \VM\Server\Handler\Message($this->container), 'onMessage']);
             }
 
             //Support Coroutine

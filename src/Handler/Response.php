@@ -1,7 +1,7 @@
 <?php
 
 
-namespace VM\Server\Callback;
+namespace VM\Server\Handler;
 
 
 use Psr\Http\Message\ResponseInterface;
