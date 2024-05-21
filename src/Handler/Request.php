@@ -62,7 +62,7 @@ class Request
             $this->container->log->error($e);
         
         }finally{
-            if (!$psr7Response) {
+            if (!isset($psr7Response)) {
                 return;
             }
             if ($request->getMethod() === 'HEAD') {
