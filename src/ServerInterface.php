@@ -2,11 +2,13 @@
 
 namespace VM\Server;
 
+use Psr\Log\LoggerInterface;
 use Psr\Container\ContainerInterface;
 use Psr\EventDispatcher\EventDispatcherInterface;
-use Psr\Log\LoggerInterface;
-use Swoole\Coroutine\Server as SwooleCoServer;
+
 use Swoole\Server as SwooleServer;
+use Swoole\Coroutine\Server as SwooleCoServer;
+
 
 interface ServerInterface
 {
@@ -18,7 +20,10 @@ interface ServerInterface
 
     public function __construct(ContainerInterface $container, LoggerInterface $logger, EventDispatcherInterface $dispatcher);
 
-    public function init(ServerConfig $config): ServerInterface;
+    /**
+     * @param array $config
+     */
+    public function config($config = []);
 
     public function start();
 

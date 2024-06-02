@@ -4,10 +4,9 @@ namespace VM\Server;
 
 use Swoole\Coroutine;
 
+use Psr\Log\LoggerInterface;
 use Psr\Container\ContainerInterface;
 use Psr\EventDispatcher\EventDispatcherInterface;
-use Psr\Log\LoggerInterface;
-
 use VM\Server\Event\CoroutineServerStop;
 use VM\Server\Event\CoroutineServerStart;
 use VM\Server\Event\MainCoroutineServerStart;
@@ -25,12 +24,7 @@ class SwooleServer implements ServerInterface
     protected $logger;
 
     /**
-     * @var EventDispatcherInterface
-     */
-    protected $eventDispatcher;
-
-    /**
-     * @var ServerConfig
+     * @var Config
      */
     protected $config;
 
@@ -44,6 +38,12 @@ class SwooleServer implements ServerInterface
      */
     protected $handler;
 
+
+    /**
+     * @var EventDispatcherInterface
+     */
+    protected $eventDispatcher;
+
     /**
      * @var bool
      */
@@ -55,33 +55,38 @@ class SwooleServer implements ServerInterface
         $this->eventDispatcher = $dispatcher;
     }
 
-    public function init(ServerConfig $config): ServerInterface
+    /**
+     * set config or get config
+     * @param Config|null $config
+     * @return Config|null
+     */
+    public function config($config = [])
     {
-        $this->config = $config;
-        return $this;
+        if($config){
+            $config['setting']['worker_num'] ??= swoole_cpu_num();
+            $this->config = new Config($config);
+            return $this;
+        }
+        return $this->config;
     }
 
     public function start()
     {
-        file_put_contents('runtime/varimax.pid', getmypid());
-
-        \Swoole\Coroutine\Run(function () {
-            $this->initServer($this->config);
-            $servers = ServerManager::list();
-            $config = $this->config->toArray();
-            foreach ($servers as $name => [$type, $server]) {
-                Coroutine::create(function () use ($name, $server, $config) {
-                    if (! $this->mainServerStarted) {
-                        $this->mainServerStarted = true;
-                        $this->eventDispatcher->dispatch(new MainCoroutineServerStart($name, $server, $config));
-                    }
-                    $this->eventDispatcher->dispatch(new CoroutineServerStart($name, $server, $config));
-                    $server->start();
-                    $this->eventDispatcher->dispatch(new CoroutineServerStop($name, $server));
-                });
-            }
-        });
-
+        $this->initServer($this->config);
+        // \Swoole\Coroutine\Run(function () {
+            // $this->initServer($this->config);
+            // $config = $this->config->toArray();
+            // Coroutine::create(function () use ($config) {
+            //     if (! $this->mainServerStarted) {
+            //         $this->mainServerStarted = true;
+            //         $this->eventDispatcher->dispatch(new MainCoroutineServerStart('main', $this->server, $config));
+            //     }
+            //     echo 'do something';
+            //     $this->eventDispatcher->dispatch(new CoroutineServerStart('coroutine', $this->server, $config));
+            //     $this->server->start();
+            //     $this->eventDispatcher->dispatch(new CoroutineServerStop('coroutine', $this->server));
+            // });
+        // });
     }
 
     /**
@@ -93,6 +98,16 @@ class SwooleServer implements ServerInterface
     }
 
     /**
+     * @param Config $config
+     * @return ServerInterface
+     */
+    public function setServer(Config $config): ServerInterface
+    {
+        $this->config = $config;
+        return $this;
+    }
+
+    /**
      * @param mixed $server
      */
     public static function isCoroutineServer($server): bool
@@ -100,34 +115,34 @@ class SwooleServer implements ServerInterface
         return $server instanceof Coroutine\Http\Server || $server instanceof Coroutine\Server;
     }
 
-    protected function initServer(ServerConfig $config): void
+    protected function initServer(Config $config): void
     {
-        $servers = $config->getServers();
-        foreach ($servers as $server) {
-            if (! $server instanceof Port) {
-                continue;
-            }
-            $name = $server->getName();
-            $type = $server->getType();
-            $host = $server->getHost();
-            $port = $server->getPort();
-            $callbacks = array_replace($config->getCallbacks(), $server->getCallbacks());
+        $this->server = $this->makeServer(...$config->take('type', 'host', 'port', 'mode', 'socket'));
+        
+        $this->server->set($config->getSetting());
+    
+        $this->registerSwooleEvents($this->server, $config->getCallback());
 
-            $this->server = $this->makeServer($type, $host, $port);
-            $settings = array_replace($config->getSettings(), $server->getSettings());
-            $this->server->set($settings);
+        $this->server->start();
+    }
 
-            $this->bindServerCallbacks($type, $name, $callbacks);
 
-            ServerManager::add($name, [$type, $this->server, $callbacks]);
+    /**
+     * @param \Swoole\Server\Port|SwooleServer $server
+     */
+    protected function registerSwooleEvents($server, array $events): void
+    {
+        foreach ($events as $event => $callback) {
+            $server->on($event, $callback);
         }
     }
 
-    protected function bindServerCallbacks(int $type, string $name, array $callbacks)
+    protected function bindServerCallback(int $type, array $callbacks)
     {
         switch ($type) {
             case ServerInterface::SERVER_HTTP:
                 if (isset($callbacks[Event::ON_REQUEST])) {
+
                     [$handler, $method] = $this->getCallbackMethod(Event::ON_REQUEST, $callbacks);
 
                     if ($this->server instanceof \Swoole\Coroutine\Http\Server) {
@@ -142,44 +157,12 @@ class SwooleServer implements ServerInterface
             case ServerInterface::SERVER_WEBSOCKET:
                 if (isset($callbacks[Event::ON_HAND_SHAKE])) {
                     [$handler, $method] = $this->getCallbackMethod(Event::ON_HAND_SHAKE, $callbacks);
-    
                     if ($this->server instanceof \Swoole\Coroutine\Http\Server) {
                         $this->server->handle('/', [$handler, $method]);
                     }
                 }
                 return;
             case ServerInterface::SERVER_BASE:
-                die('ServerInterface::SERVER_BASE');
-                // if (isset($callbacks[Event::ON_RECEIVE])) {
-                //     [$connectHandler, $connectMethod] = $this->getCallbackMethod(Event::ON_CONNECT, $callbacks);
-                //     [$receiveHandler, $receiveMethod] = $this->getCallbackMethod(Event::ON_RECEIVE, $callbacks);
-                //     [$closeHandler, $closeMethod] = $this->getCallbackMethod(Event::ON_CLOSE, $callbacks);
-                //     if ($this->server instanceof \Swoole\Coroutine\Server) {
-                //         $this->server->handle(function (Coroutine\Server\Connection $connection) use ($connectHandler, $connectMethod, $receiveHandler, $receiveMethod, $closeHandler, $closeMethod) {
-                //             if ($connectHandler && $connectMethod) {
-                //                 parallel([static function () use ($connectHandler, $connectMethod, $connection) {
-                //                     $connectHandler->{$connectMethod}($connection, $connection->exportSocket()->fd);
-                //                 }]);
-                //             }
-                //             while (true) {
-                //                 $data = $connection->recv();
-                //                 if (empty($data)) {
-                //                     if ($closeHandler && $closeMethod) {
-                //                         parallel([static function () use ($closeHandler, $closeMethod, $connection) {
-                //                             $closeHandler->{$closeMethod}($connection, $connection->exportSocket()->fd);
-                //                         }]);
-                //                     }
-                //                     $connection->close();
-                //                     break;
-                //                 }
-                //                 // One coroutine at a time, consistent with other servers
-                //                 parallel([static function () use ($receiveHandler, $receiveMethod, $connection, $data) {
-                //                     $receiveHandler->{$receiveMethod}($connection, $connection->exportSocket()->fd, 0, $data);
-                //                 }]);
-                //             }
-                //         });
-                //     }
-                // }
                 return;
         }
 
@@ -191,12 +174,27 @@ class SwooleServer implements ServerInterface
         $handler = $method = null;
         if (isset($callbacks[$callack])) {
             [$class, $method] = $callbacks[$callack];
-            $handler = $this->container->make($class);
+            $handler = new $class($this->container);
         }
         return [$handler, $method];
     }
 
-    protected function makeServer($type, $host, $port)
+
+    protected function makeServer($type, $host, $port, int $mode, int $socket)
+    {
+        switch ($type) {
+            case ServerInterface::SERVER_HTTP:
+                return new \Swoole\Http\Server($host, $port, $mode, $socket);
+            case ServerInterface::SERVER_WEBSOCKET:
+                return new \Swoole\WebSocket\Server($host, $port, $mode, $socket);
+            case ServerInterface::SERVER_BASE:
+                return new \Swoole\Server($host, $port, $mode, $socket);
+        }
+        throw new \RuntimeException('Server type is invalid.');
+    }
+
+
+    protected function makePort($type, $host, $port)
     {
         switch ($type) {
             case ServerInterface::SERVER_HTTP:

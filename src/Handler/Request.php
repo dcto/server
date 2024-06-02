@@ -65,6 +65,7 @@ class Request
             if (!isset($psr7Response)) {
                 return;
             }
+
             if ($request->getMethod() === 'HEAD') {
                 $this->response->emit($psr7Response, $response, false);
             } else {

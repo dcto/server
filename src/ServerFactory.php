@@ -2,18 +2,24 @@
  
 namespace VM\Server;
 
-use VM\Server\Entry\EventDispatcher;
-
+use Psr\Log\LoggerInterface;
 use Psr\Container\ContainerInterface;
 use Psr\EventDispatcher\EventDispatcherInterface;
-use Psr\Log\LoggerInterface;
+
+use VM\Server\Entry\EventDispatcher;
 
 class ServerFactory
 {
+    
     /**
      * @var ContainerInterface
      */
     protected $container;
+
+    /**
+     * @var ServerInterface
+     */
+    protected $server;
 
     /**
      * @var null|LoggerInterface
@@ -25,26 +31,10 @@ class ServerFactory
      */
     protected $eventDispatcher;
 
-    /**
-     * @var ServerInterface
-     */
-    protected $server;
-
-    /**
-     * @var null|ServerConfig
-     */
-    protected $config;
 
     public function __construct(ContainerInterface $container)
     {
         $this->container = $container;
-    }
-
-    public function configure(array $config)
-    {
-        $this->config = new ServerConfig($config);
-
-        $this->getServer()->init($this->config);
     }
 
     public function start()
@@ -52,21 +42,20 @@ class ServerFactory
         return $this->getServer()->start();
     }
 
-    public function getServer(): ServerInterface
+    public function getServer($name = null): ServerInterface
     {
-        if (! $this->server instanceof ServerInterface) {
-            $serverName = $this->config->getType();
+        if (!$this->server instanceof ServerInterface) {
+            $serverName = sprintf(__NAMESPACE__.'\%sServer', ucfirst($name));
             $this->server = new $serverName(
                 $this->container,
                 $this->getLogger(),
                 $this->getEventDispatcher()
             );
         }
-
         return $this->server;
     }
 
-    public function setServer(Server $server): self
+    public function setServer($server): self
     {
         $this->server = $server;
         return $this;
@@ -107,6 +96,6 @@ class ServerFactory
 
     private function getDefaultLogger(): LoggerInterface
     {
-        return $this->container->log;
+        return $this->container->get('log');
     }
 }

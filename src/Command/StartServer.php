@@ -2,13 +2,10 @@
 
 namespace VM\Server\Command;
 
-use VM\Server\Server;
 use VM\Server\ServerFactory;
-use VM\Server\ServerInterface;
 use VM\Server\Entry\EventDispatcher;
 
 use Psr\Container\ContainerInterface;
-
 use Symfony\Component\Console\Application;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\ArrayInput;
@@ -16,12 +13,12 @@ use Symfony\Component\Console\Style\SymfonyStyle;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Helper\TableSeparator;
-
+use VM\Server\ServerInterface;
 
 class StartServer extends Command
 {
     /**
-     * @var ContainerInterface|\VM\Application
+     * @var ContainerInterface
      */
     private $container;
 
@@ -42,90 +39,41 @@ class StartServer extends Command
 
     protected function execute(InputInterface $input, OutputInterface $output)
     {
-            $this->checkEnvironment($output);
+        $this->checkEnvironment($output);
+        $io = new SymfonyStyle($input, $output);
 
-            $serverFactory = $this->container->make(ServerFactory::class, ['container'=>$this->container])
-                ->setEventDispatcher($this->container->make(EventDispatcher::class))
-                ->setLogger($this->container->get('log'));
-                
-            $config = array_replace_recursive($this->defaultConfig(),  $this->container->config->get('server', []) );
-            $serverFactory->configure($config);
-
-            $server = $serverFactory->getServer()->getServer();
-
-            $io = new SymfonyStyle($input, $output);
-           
-            if (!$server->getCallback('start')){
-                $server->on('start', function (\Swoole\Server $server) use($io) {
-                    $io->definitionList(
-                        "Varimax Server:",
-                        ['application'=>_APP_],
-                        ['listen_on'=>$server->host.':'.$server->port],['master_id'=>$server->master_pid],
-                        new TableSeparator(),
-                        "Server Infomation:",
-                        ...array_chunk(array_filter($server->setting), 1, true)
-                    );
-
-                    if($this->container->config->get('crontab', [])) {
-                        if (!class_exists(\VM\Crontab\CrontabDispatcher::class)) throw new \RuntimeException('Please composer require varimax/crontab first.');
-                        $this->container->make(\VM\Crontab\CrontabDispatcher::class, ['app'=>$this->container])->handle();
-                    }
-                });
-            }
-
-            if ($server instanceof \Swoole\Http\Server && !$server->getCallback('request')){
-                $server->on('request', [new \VM\Server\Handler\Request($this->container), 'onRequest']);
-            }
-
-            if ($server instanceof \Swoole\WebSocket\Server && !$server->getCallback('message')){
-                $server->on('message', [new \VM\Server\Handler\Message($this->container), 'onMessage']);
-            }
-
-            //Support Coroutine
-            \Swoole\Coroutine::set(['hook_flags' => SWOOLE_HOOK_ALL]);
-            // \Swoole\Runtime::enableCoroutine(SWOOLE_HOOK_ALL  | SWOOLE_HOOK_CURL);
+        $serverFactory = new ServerFactory($this->container);
+        $serverFactory->setEventDispatcher($this->container->get(EventDispatcher::class));
+        $serverFactory->setLogger($this->container->get('log'));
+        
+        foreach($this->container->config->get('server', []) as $name => $config){
+            $server = $serverFactory->getServer(is_string($name) ? $name : 'swoole');
             
-            $serverFactory->start();
+            $config['callback']['start'] ??= function (\Swoole\Server $server) use($io) {
+                $io->definitionList(
+                    "Varimax Server:",
+                    ['application'=>_APP_],
+                    ['listen_on'=>$server->host.':'.$server->port],['master_id'=>$server->master_pid], new TableSeparator(),
+                    ...array_chunk(array_filter($server->setting), 1, true)
+                );
 
+                if($this->container->config->get('crontab', [])) {
+                    if (!class_exists(\VM\Crontab\CrontabDispatcher::class)) throw new \RuntimeException('Please composer require varimax/crontab first.');
+                    call_user_func([new \VM\Crontab\CrontabDispatcher($this->container), 'handle']);
+                }
+            };
+            
+            if ($config['type'] == ServerInterface::SERVER_HTTP){
+                $config['callback']['request'] ??= [new \VM\Server\Handler\Request($this->container), 'onRequest'];
+            }
+
+            \Swoole\Coroutine::set(['hook_flags' => SWOOLE_HOOK_ALL]);
+
+            $server->config($config)->start();
+        }
         return 0;
     }
     
-    private function defaultConfig(){
-        return [
-            'type' => Server::class,
-            'mode' => SWOOLE_BASE,
-            'servers' => [
-                [
-                    'name' => 'http',
-                    'type' => ServerInterface::SERVER_HTTP,
-                    'host' => '0.0.0.0',
-                    'port' => 8620,
-                    'sock_type' => SWOOLE_SOCK_TCP,
-                    'callbacks' => [],
-                ],
-            ],
-            'processes' => [
-            ],
-            'settings' => [
-                'enable_coroutine' => true,
-                'worker_num' => (getenv('ENV') == 'DEV' || getenv('DEBUG')) ? 1 : swoole_cpu_num(),
-                'pid_file' => './runtime/varimax.pid',
-                'open_tcp_nodelay' => true,
-                'max_coroutine' => 100000,
-                'open_http2_protocol' => true,
-                'max_request' => 0,
-                'socket_buffer_size' => 2 * 1024 * 1024,
-            ],
-            'callbacks' => [
-                // Event::ON_BEFORE_START => [ServerStartCallback::class, 'beforeStart'],
-                // Event::ON_WORKER_START => [WorkerStartCallback::class, 'onWorkerStart'],
-                // Event::ON_PIPE_MESSAGE => [PipeMessageCallback::class, 'onPipeMessage'],
-                // Event::ON_WORKER_EXIT => [WorkerExitCallback::class, 'onWorkerExit'],
-            ],
-        ];
-        
-    }
-
     private function checkEnvironment(OutputInterface $output)
     {
         if (! extension_loaded('swoole')) {

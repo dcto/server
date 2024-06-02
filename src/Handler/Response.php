@@ -38,6 +38,7 @@ class Response {
             }
         } catch (\Throwable $e) {
             error_log($e, 4);
+            // $swooleResponse->end($response->getContent());
         }
     }
 
