@@ -13,6 +13,7 @@ use Symfony\Component\Console\Style\SymfonyStyle;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Helper\TableSeparator;
+use VM\Server\Event;
 use VM\Server\ServerInterface;
 
 class StartServer extends Command
@@ -48,10 +49,11 @@ class StartServer extends Command
         
         foreach($this->container->config->get('server', []) as $name => $config){
             $server = $serverFactory->getServer(is_string($name) ? $name : 'swoole');
+
             
-            $config['callback']['start'] ??= function (\Swoole\Server $server) use($io) {
+            $config['callback'][Event::ON_START] ??= function (\Swoole\Server $server) use($io) {
                 $io->definitionList(
-                    "Varimax Server:",
+                    'Varimax Server',
                     ['application'=>_APP_],
                     ['listen_on'=>$server->host.':'.$server->port],['master_id'=>$server->master_pid], new TableSeparator(),
                     ...array_chunk(array_filter($server->setting), 1, true)
@@ -63,8 +65,20 @@ class StartServer extends Command
                 }
             };
             
-            if ($config['type'] == ServerInterface::SERVER_HTTP){
-                $config['callback']['request'] ??= [new \VM\Server\Handler\Request($this->container), 'onRequest'];
+            switch ($config['type']){
+                case ServerInterface::SERVER_HTTP:
+                    $config['callback'][Event::ON_REQUEST] ??= [new \VM\Server\Handler\Request($this->container), 'onRequest'];
+                break;
+
+                case ServerInterface::SERVER_WEBSOCKET:
+                    $config['callback'][Event::ON_OPEN] ??= [new \VM\Server\Handler\WebSocket($this->container), 'Open'];
+                    $config['callback'][Event::ON_MESSAGE] ??= [new \VM\Server\Handler\WebSocket($this->container), 'Message'];
+                break;
+
+                default:
+                    $config['callback'][Event::ON_CONNECT] ??= [new \VM\Server\Handler\Base($this->container), 'Connect'];
+                    $config['callback'][Event::ON_RECEIVE] ??= [new \VM\Server\Handler\Base($this->container), 'Receive'];
+                    $config['callback'][Event::ON_CLOSE] ??= [new \VM\Server\Handler\Base($this->container), 'Close'];
             }
 
             \Swoole\Coroutine::set(['hook_flags' => SWOOLE_HOOK_ALL]);
