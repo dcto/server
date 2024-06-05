@@ -47,44 +47,35 @@ class StartServer extends Command
         $serverFactory->setEventDispatcher($this->container->get(EventDispatcher::class));
         $serverFactory->setLogger($this->container->get('log'));
         
-        foreach($this->container->config->get('server', []) as $name => $config){
-            $server = $serverFactory->getServer(is_string($name) ? $name : 'swoole');
+        $server = $serverFactory->getServer('swoole');
+        $config = $this->container->config->get('server', []);
 
-            
-            $config['callback'][Event::ON_START] ??= function (\Swoole\Server $server) use($io) {
-                $io->definitionList(
-                    'Varimax Server',
-                    ['application'=>_APP_],
-                    ['listen_on'=>$server->host.':'.$server->port],['master_id'=>$server->master_pid], new TableSeparator(),
-                    ...array_chunk(array_filter($server->setting), 1, true)
-                );
 
-                if($this->container->config->get('crontab', [])) {
-                    if (!class_exists(\VM\Crontab\CrontabDispatcher::class)) throw new \RuntimeException('Please composer require varimax/crontab first.');
-                    call_user_func([new \VM\Crontab\CrontabDispatcher($this->container), 'handle']);
-                }
-            };
-            
-            switch ($config['type']){
-                case ServerInterface::SERVER_HTTP:
-                    $config['callback'][Event::ON_REQUEST] ??= [new \VM\Server\Handler\Request($this->container), 'onRequest'];
-                break;
+        $config['callback'][Event::ON_START] ??= function (\Swoole\Server $server) use($io) {
+            $io->definitionList(
+                'Varimax Server',
+                ['application'=>_APP_],
+                ['listen_on'=>$server->host.':'.$server->port],['master_id'=>$server->master_pid], new TableSeparator(),
+                ...array_chunk(array_filter($server->setting), 1, true)
+            );
 
-                case ServerInterface::SERVER_WEBSOCKET:
-                    $config['callback'][Event::ON_OPEN] ??= [new \VM\Server\Handler\WebSocket($this->container), 'Open'];
-                    $config['callback'][Event::ON_MESSAGE] ??= [new \VM\Server\Handler\WebSocket($this->container), 'Message'];
-                break;
-
-                default:
-                    $config['callback'][Event::ON_CONNECT] ??= [new \VM\Server\Handler\Base($this->container), 'Connect'];
-                    $config['callback'][Event::ON_RECEIVE] ??= [new \VM\Server\Handler\Base($this->container), 'Receive'];
-                    $config['callback'][Event::ON_CLOSE] ??= [new \VM\Server\Handler\Base($this->container), 'Close'];
+            if($this->container->config->get('crontab', [])) {
+                if (!class_exists(\VM\Crontab\CrontabDispatcher::class)) throw new \RuntimeException('Please composer require varimax/crontab first.');
+                call_user_func([new \VM\Crontab\CrontabDispatcher($this->container), 'handle']);
             }
+        };
+        
+        $config['callback'][Event::ON_REQUEST] ??= [new \VM\Server\Handler\Request($this->container), 'onRequest'];
+        $config['callback'][Event::ON_OPEN] ??= [new \VM\Server\Handler\WebSocket($this->container), 'Open'];
+        $config['callback'][Event::ON_MESSAGE] ??= [new \VM\Server\Handler\WebSocket($this->container), 'Message'];
+        $config['callback'][Event::ON_CONNECT] ??= [new \VM\Server\Handler\Base($this->container), 'Connect'];
+        $config['callback'][Event::ON_RECEIVE] ??= [new \VM\Server\Handler\Base($this->container), 'Receive'];
+        $config['callback'][Event::ON_CLOSE] ??= [new \VM\Server\Handler\Base($this->container), 'Close'];
 
-            \Swoole\Coroutine::set(['hook_flags' => SWOOLE_HOOK_ALL]);
+        \Swoole\Coroutine::set(['hook_flags' => SWOOLE_HOOK_ALL]);
+        
+        $server->config($config)->start();
 
-            $server->config($config)->start();
-        }
         return 0;
     }
     

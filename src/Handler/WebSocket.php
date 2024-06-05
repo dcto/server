@@ -19,7 +19,7 @@ class WebSocket
         $this->container = $container;
     }
 
-    public function Open(Server $server, Request $request)
+    public function Open($server, Request $request)
     {
         $this->container->request->initialize(
             $request->get ?? [],
@@ -37,10 +37,10 @@ class WebSocket
         $this->container->get('log')->info('WebSocket Connection: ['.$request->fd.']', (array) $request);
     }
 
-    public function Message(Server $server, Frame $frame)
+    public function Message($server, Frame $frame)
     {
-        $context = (array) $frame;
-        $this->container->get('log')->info('Received Message: ['.$frame->fd.']', $context);
+        $context =  get_object_vars($frame);
+        $this->container->get('log')->info('Websocket Received: ['.$frame->fd.']', $context);
         $server->push($frame->fd,  $this->container->dispatch(...$context)->getContent());
     }
     
