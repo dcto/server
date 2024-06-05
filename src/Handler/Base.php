@@ -24,11 +24,11 @@ class Base
 
     public function Receive(Server $server, int $fd, int $reactor_id, $data)
     {
-        $this->container->get('log')->info(sprintf('Received:[%s] [Reactor: %s]:%s', $fd, $reactor_id, json_encode($data)));
+        $this->container->get('log')->info(sprintf('Received: Fd:[%s], ReactorId:[%s], Data:%s', $fd, $reactor_id, json_encode($data)));
     }
 
-    public function Close(Server $server, int $fd)
+    public function Close(Server $server, int $fd,  int $reactorId)
     {
-        $this->container->get('log')->info('Close: ['.$fd.']');
+        $this->container->get('log')->info(sprintf('Close: Fd:[%s], ReactorId:[%s]', $fd, $reactorId));
     }
 }
