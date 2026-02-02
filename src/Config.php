@@ -198,6 +198,10 @@ class Config implements \ArrayAccess
             $config['setting'] = array_merge($default, $config['setting'] ?? []);
         }
 
+        if (!empty($config['setting']['document_root'])) {
+            $config['setting']['enable_static_handler'] ??= true;
+        }
+
         return $config;
     }
 }
